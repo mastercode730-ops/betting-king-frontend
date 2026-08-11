@@ -4,16 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
-const MONTH_NAMES = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December'
-];
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-const FLOAT_ANIMS  = ['float-a','float-b','float-c'];
-const FLOAT_DURS   = [4.2,5.1,6.4,7.8,5.6,4.8,6.9,3.8,7.2,5.3];
-const FLOAT_DELAYS = [0,0.8,1.6,2.4,0.4,1.2,2.0,0.6,1.8,2.8];
-const FLOAT_AMPS   = [10,14,18,12,16,11,15,13,17,9];
 
 export default function GameChartPage() {
   const params = useParams();
@@ -45,7 +36,7 @@ export default function GameChartPage() {
     }
   }, [gameCode]);
 
-  // Fetch today's live results board (all games for this page)
+  // Fetch today's live results board
   const loadToday = useCallback(async () => {
     try {
       const res = await fetch('/api/results/today');
@@ -69,26 +60,23 @@ export default function GameChartPage() {
   };
 
   const years = [2026, 2025, 2024, 2023, 2022];
-
-  // Categories for the live board
   const categories = [
     { key: 'LIVE', label: '🔴 LIVE', cls: '' },
     { key: 'NEXT', label: '⏳ NEXT', cls: 'cat-next' },
     { key: 'REST', label: '✓ DONE', cls: 'cat-rest' },
   ];
 
-  // Get today + yesterday's result for this specific game
   const thisGame = todayResults.find(g => g.code === gameCode);
 
   if (error) {
     return (
-      <div id="wrapper" style={{ padding: 40, textAlign: 'center', fontFamily: 'var(--text-mono)', color: 'var(--neon-pink)' }}>
-        <div className="scanlines" aria-hidden="true" />
-        <h1 style={{ fontFamily: 'var(--font-hero)', fontSize: 48, color: 'var(--neon-pink)', letterSpacing: 4 }}>
+      <div id="wrapper" style={{ padding: 40, textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>
+        <div className="aurora" aria-hidden="true" />
+        <h1 style={{ fontFamily: 'var(--font-hero)', fontSize: 44, letterSpacing: 2 }}>
           GAME NOT FOUND
         </h1>
-        <p style={{ color: 'var(--text-dim)', marginTop: 16 }}>Code: {gameCode}</p>
-        <Link href="/" className="back-link" style={{ marginTop: 24, display: 'inline-flex' }}>
+        <p style={{ color: 'var(--dim)', marginTop: 12 }}>Code: {gameCode}</p>
+        <Link href="/" className="nav-btn" style={{ marginTop: 24, display: 'inline-flex' }}>
           ← BACK TO HOME
         </Link>
       </div>
@@ -97,86 +85,63 @@ export default function GameChartPage() {
 
   return (
     <div id="wrapper">
-      <div className="scanlines" aria-hidden="true" />
+      <div className="aurora" aria-hidden="true" />
+      <div className="orbs" aria-hidden="true">
+        <div className="orb" />
+        <div className="orb" />
+        <div className="orb" />
+      </div>
 
-      {/* ── HEADER ── */}
-      <header id="header">
-        <div className="header-inner">
-          <div className="brand">
-            <div className="brand-icon" aria-hidden="true">♚</div>
-            <div>
-              <Link href="/" style={{ textDecoration: 'none' }}>
-                <div className="brand-name">SATTA KING FAST</div>
-                <div className="brand-sub">SUPERFAST LIVE RESULTS &amp; CHARTS</div>
-              </Link>
-            </div>
+      {/* ── TOP NAV ── */}
+      <header className="nav">
+        <Link href="/" className="brand-wrapper">
+          <div className="brand-mark">
+            <span className="brand-dot" />
           </div>
-          <div className="header-live-badge">
-            <span className="live-dot" />
-            <time>{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</time>
+          <div className="brand-text">
+            <span className="brand-title">SATTA KING FAST</span>
+            <span className="brand-sub">ANNUAL RECORD ARCHIVE</span>
           </div>
+        </Link>
+        <div className="nav-right">
+          <Link href="/" className="nav-btn">
+            ← BACK TO HOME
+          </Link>
         </div>
       </header>
 
-      <main id="container">
-
-        {/* Back button */}
-        <Link href="/" className="back-link" id="back-to-home">
-          ← BACK TO HOME
-        </Link>
-
-        {/* ── CHART PAGE HEADER ── */}
-        <div className="chart-page-header">
-          {loading ? (
-            <>
-              <h1 style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-hero)', fontSize: 36, letterSpacing: 3 }}>
-                LOADING...
-              </h1>
-              <p>Fetching {gameCode} chart data…</p>
-            </>
-          ) : (
-            <>
-              <h1 id="chart-page-title">
-                {gameData?.name} Satta Result Chart {year}
-              </h1>
-              <p id="chart-page-subtitle">
-                Draw Time: {gameData?.draw_time} &nbsp;|&nbsp; Annual Record Chart {year} &nbsp;|&nbsp; Code: {gameCode}
-              </p>
-            </>
-          )}
+      <main className="wrap">
+        {/* CHART TITLE SECTION */}
+        <div className="section-head" style={{ marginTop: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="section-title">
+              📊 {gameData?.name || gameCode} SATTA RECORD CHART {year}
+            </span>
+            <span className="section-meta" style={{ marginTop: 4 }}>
+              Draw Time: {gameData?.draw_time} &nbsp;|&nbsp; Annual Result Record &nbsp;|&nbsp; Code: {gameCode}
+            </span>
+          </div>
         </div>
 
-        {/* ── HIGHLIGHTED: This game's today result ── */}
+        {/* HIGHLIGHT: THIS GAME'S TODAY RESULT */}
         {thisGame && (
-          <div
-            className="game-card highlight"
-            style={{
-              marginBottom: 24,
-              '--float-dur': '5s',
-              '--float-delay': '0s',
-              '--float-amp': '8px',
-              animationName: 'float-a',
-              borderColor: 'rgba(0,255,136,0.4)',
-            }}
-            id={`featured-card-${gameCode}`}
-          >
+          <div className="game-card highlight" style={{ margin: '18px 0', borderColor: 'rgba(34,211,238,0.5)', background: 'rgba(34,211,238,0.06)' }}>
             <div className="game-info">
-              <div className="game-title" style={{ fontSize: 16 }}>{thisGame.name} — TODAY&apos;S RESULT</div>
+              <div className="game-title" style={{ fontSize: 18 }}>{thisGame.name} — TODAY&apos;S RESULT</div>
               <div className="game-time">⏰ {thisGame.draw_time}</div>
             </div>
             <div className="numbers-wrapper">
               <div className="num-box">
-                <span className="num-label">YEST {fmt(yesterdayDate)}</span>
-                <span className="num-badge yesterday" style={{ width: 64, height: 58, fontSize: 30 }}>
+                <span className="num-label">YEST ({fmt(yesterdayDate)})</span>
+                <span className="num-badge yesterday" style={{ width: 56, height: 50, fontSize: 26 }}>
                   {thisGame.yesterday_number}
                 </span>
               </div>
               <div className="num-box">
-                <span className="num-label">TODAY {fmt(todayDate)}</span>
+                <span className="num-label">TODAY ({fmt(todayDate)})</span>
                 <span
                   className={`num-badge ${thisGame.today_number === 'XX' || thisGame.today_number === '--' ? 'pending' : 'today is-highlight-num'}`}
-                  style={{ width: 64, height: 58, fontSize: 30 }}
-                  id={`featured-num-${gameCode}`}
+                  style={{ width: 56, height: 50, fontSize: 26 }}
                 >
                   {thisGame.today_number}
                 </span>
@@ -185,7 +150,7 @@ export default function GameChartPage() {
           </div>
         )}
 
-        {/* ── YEAR SELECTOR ── */}
+        {/* YEAR NAV SELECTOR */}
         <div className="year-nav" id="year-nav">
           {years.map(y => (
             <button
@@ -194,27 +159,22 @@ export default function GameChartPage() {
               onClick={() => setYear(String(y))}
               id={`year-btn-${y}`}
             >
-              {y}
+              {y} CHART
             </button>
           ))}
         </div>
 
-        {/* ── ANNUAL CHART TABLE ── */}
-        <div className="section-head">
-          <span className="section-title">📊 {gameData?.name || gameCode} — {year}</span>
-          <span className="section-meta">Annual result record</span>
-        </div>
-
+        {/* ANNUAL CHART TABLE */}
         <div className="annual-chart-wrapper" id="annual-chart-wrapper">
           {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', fontFamily: 'var(--text-mono)', color: 'var(--text-dim)' }}>
-              [ LOADING CHART DATA... ]
+            <div style={{ padding: 40, textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--dim)' }}>
+              [ FETCHING {gameCode} {year} ANNUAL RECORD... ]
             </div>
           ) : (
             <table className="annual-table" id="annual-chart-table" aria-label={`${gameData?.name} annual result chart ${year}`}>
               <thead>
                 <tr>
-                  <th className="day-head">DATE</th>
+                  <th style={{ width: 50 }}>DATE</th>
                   {MONTH_SHORT.map(m => <th key={m}>{m}</th>)}
                 </tr>
               </thead>
@@ -242,12 +202,12 @@ export default function GameChartPage() {
           )}
         </div>
 
-        {/* ── COMBINED MONTHLY RESULTS BOARD ── */}
+        {/* COMBINED REGIONAL RESULTS BOARD */}
         <div className="section-head" style={{ marginTop: 40 }}>
-          <span className="section-title">▦ ALL REGIONAL RESULTS</span>
-          <div style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
+          <span className="section-title">▦ ALL OTHER REGIONAL RESULTS</span>
+          <div style={{ display: 'flex', gap: 16 }}>
             <span className="section-meta">↩ {fmt(yesterdayDate)}</span>
-            <span className="section-meta" style={{ color: 'var(--neon-pink)' }}>⬤ {fmt(todayDate)} (TODAY)</span>
+            <span className="section-meta" style={{ color: 'var(--cyan)' }}>⬤ {fmt(todayDate)} (TODAY)</span>
           </div>
         </div>
 
@@ -258,36 +218,21 @@ export default function GameChartPage() {
             return (
               <div key={cat.key}>
                 <div className={`cat-label ${cat.cls}`}>
-                  <span className="cat-label-text">{cat.label}</span>
+                  <span>{cat.label}</span>
                 </div>
                 <div className="results-grid">
-                  {catGames.map((g, idx) => {
-                    const isPending   = g.today_number === 'XX' || g.today_number === '--';
-                    const todayCls    = isPending ? 'pending' : `today${g.is_highlight ? ' is-highlight-num' : ''}`;
+                  {catGames.map((g) => {
+                    const isPending = g.today_number === 'XX' || g.today_number === '--';
+                    const todayCls = isPending ? 'pending' : `today${g.is_highlight ? ' is-highlight-num' : ''}`;
                     const isHighlight = g.is_highlight ? 'highlight' : '';
-                    const catCard     = cat.key === 'NEXT' ? 'cat-next-card' : cat.key === 'REST' ? 'cat-rest-card' : '';
-                    const dur         = FLOAT_DURS[idx % FLOAT_DURS.length];
-                    const delay       = FLOAT_DELAYS[idx % FLOAT_DELAYS.length];
-                    const amp         = FLOAT_AMPS[idx % FLOAT_AMPS.length];
-                    const anim        = FLOAT_ANIMS[idx % FLOAT_ANIMS.length];
-                    const chartHref   = `/${g.slug || g.code.toLowerCase()}/satta-result-chart/${g.code.toLowerCase()}/`;
+                    const chartHref = `/${g.slug || g.code.toLowerCase()}/satta-result-chart/${g.code.toLowerCase()}/`;
 
                     return (
-                      <div
-                        key={g.code}
-                        className={`game-card ${isHighlight} ${catCard} ${g.code === gameCode ? 'highlight' : ''}`}
-                        id={`board-card-${g.code}`}
-                        style={{
-                          '--float-dur': `${dur}s`,
-                          '--float-delay': `-${delay}s`,
-                          '--float-amp': `${amp}px`,
-                          animationName: anim,
-                        }}
-                      >
+                      <div key={g.code} className={`game-card ${isHighlight} ${g.code === gameCode ? 'highlight' : ''}`}>
                         <div className="game-info">
                           <div className="game-title">{g.name}</div>
                           <div className="game-time">⏰ {g.draw_time}</div>
-                          <Link href={chartHref} className="chart-link" id={`board-chart-link-${g.code}`}>
+                          <Link href={chartHref} className="chart-link">
                             ◈ RECORD CHART →
                           </Link>
                         </div>
@@ -298,7 +243,7 @@ export default function GameChartPage() {
                           </div>
                           <div className="num-box">
                             <span className="num-label">TODAY</span>
-                            <span className={`num-badge ${todayCls}`} id={`board-num-${g.code}`}>
+                            <span className={`num-badge ${todayCls}`}>
                               {g.today_number}
                             </span>
                           </div>
