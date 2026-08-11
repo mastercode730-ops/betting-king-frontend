@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { STATIC_GAMES, getMockMonthlyChart, WHATSAPP_URL, WHATSAPP_NUMBER } from '../lib/mockData';
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -10,16 +11,20 @@ const MONTH_NAMES = [
 const REFRESH_MS = 15_000;
 
 export default function HomePage() {
-  const [games, setGames]           = useState([]);
-  const [todayDate, setTodayDate]   = useState('');
-  const [yesterdayDate, setYDate]   = useState('');
+  const [games, setGames]           = useState(STATIC_GAMES);
+  const [todayDate, setTodayDate]   = useState(() => new Date().toISOString().split('T')[0]);
+  const [yesterdayDate, setYDate]   = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  });
   const [searchQ, setSearchQ]       = useState('');
   const [clock, setClock]           = useState('');
-  const [chartData, setChartData]   = useState(null);
   const [chartMonth, setChartMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'));
   const [chartYear, setChartYear]   = useState(() => String(new Date().getFullYear()));
+  const [chartData, setChartData]   = useState(() => getMockMonthlyChart(String(new Date().getMonth() + 1).padStart(2, '0'), String(new Date().getFullYear())));
 
-  // Clock
+  // Live Clock
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -30,17 +35,20 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, []);
 
-  // Fetch today results
+  // Fetch today results with fallback
   const loadResults = useCallback(async () => {
     try {
       const res = await fetch('/api/results/today');
+      if (!res.ok) throw new Error('API fetch failed');
       const json = await res.json();
-      if (!json.success) return;
-      setGames(json.data);
-      setTodayDate(json.today_date);
-      setYDate(json.yesterday_date);
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setGames(json.data);
+        if (json.today_date) setTodayDate(json.today_date);
+        if (json.yesterday_date) setYDate(json.yesterday_date);
+      }
     } catch (e) {
-      console.warn('[SK] API error:', e.message);
+      // Graceful fallback to static data
+      console.warn('[SK] Using static data fallback:', e.message);
     }
   }, []);
 
@@ -50,15 +58,20 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, [loadResults]);
 
-  // Load chart
+  // Load chart with fallback
   const loadChart = useCallback(async (month, year) => {
     try {
       const res = await fetch(`/api/chart/monthly?month=${month}&year=${year}`);
+      if (!res.ok) throw new Error('Chart API failed');
       const json = await res.json();
-      if (json.success) setChartData(json);
+      if (json.success && json.rows) {
+        setChartData(json);
+        return;
+      }
     } catch (e) {
-      console.warn('[SK] Chart error:', e.message);
+      // Fallback
     }
+    setChartData(getMockMonthlyChart(month, year));
   }, []);
 
   useEffect(() => {
@@ -83,7 +96,6 @@ export default function HomePage() {
     { key: 'REST', label: '✓ COMPLETED DRAWS',      cls: 'cat-rest' },
   ];
 
-  // Chart navigation
   const goToMonth = (month, year) => {
     setChartMonth(month);
     setChartYear(year);
@@ -95,6 +107,16 @@ export default function HomePage() {
   const nextMIdx = mIdx === 11 ? 0 : mIdx + 1;
   const nextYear = mIdx === 11 ? parseInt(chartYear) + 1 : parseInt(chartYear);
   const todayDay = todayDate ? todayDate.split('-')[2] : '';
+
+  // Spinner Icon component for pending live games
+  const SpinnerIcon = () => (
+    <span className="wait-spinner" title="रिजल्ट का इंतज़ार">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9.5" />
+        <line className="clock-hand" x1="12" y1="12" x2="12" y2="6.5" />
+      </svg>
+    </span>
+  );
 
   return (
     <div id="wrapper">
@@ -116,6 +138,9 @@ export default function HomePage() {
           <span className="lrs-time">({latestDraw.draw_time})</span>
           <span className="lrs-arrow">&#10148;</span>
           <span className="lrs-num">{latestDraw.today_number === 'XX' || latestDraw.today_number === '--' ? '??' : latestDraw.today_number}</span>
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-wa" style={{ padding: '3px 12px', fontSize: '11px', marginLeft: 8 }}>
+            💬 WhatsApp
+          </a>
         </div>
       )}
 
@@ -148,6 +173,9 @@ export default function HomePage() {
         </div>
 
         <div className="nav-right">
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-wa" id="nav-wa-btn">
+            💬 WhatsApp
+          </a>
           <div className="clock-badge">
             <span className="lrs-dot" />
             <time id="live-timestamp">{clock || 'LIVE'}</time>
@@ -164,7 +192,7 @@ export default function HomePage() {
               <span key={`${g.code}-${idx}`} className="ticker-item">
                 <b>{g.name}</b>
                 <span className={`val ${isPending ? 'wait' : ''}`}>
-                  {isPending ? '⏳ WAITING' : g.today_number}
+                  {isPending ? <><SpinnerIcon /> WAITING</> : g.today_number}
                 </span>
               </span>
             );
@@ -174,6 +202,21 @@ export default function HomePage() {
 
       {/* ── MAIN CONTENT ── */}
       <main className="wrap">
+
+        {/* PROMINENT WHATSAPP BANNER */}
+        <div className="wa-banner">
+          <div className="wa-banner-text">
+            <span className="wa-banner-title">
+              👑 सीधा खाईवाल से गेम पास करवाएं &bull; 100% ईमानदार और सुपरफास्ट पेमेंट
+            </span>
+            <span className="wa-banner-sub">
+              जोड़ी और हरूफ गेम सीधे WhatsApp पर प्राप्त करें &bull; नंबर: {WHATSAPP_NUMBER}
+            </span>
+          </div>
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-wa">
+            📲 WhatsApp पर जुड़ें
+          </a>
+        </div>
 
         {/* HERO LIVE DRAWS */}
         <div className="section-head">
@@ -188,13 +231,13 @@ export default function HomePage() {
               <div key={g.code} className="hero-card" id={`hero-${g.code}`}>
                 <div className="hero-game-name">{g.name}</div>
                 <span className={`hero-number ${isPending ? 'pending-hero' : ''}`}>
-                  {isPending ? '??' : g.today_number}
+                  {isPending ? <SpinnerIcon /> : g.today_number}
                 </span>
                 <div className="hero-meta">
                   <span className="hero-time">DRAW: {g.draw_time}</span>
                   {isPending ? (
-                    <span className="hero-badge" style={{ background: 'rgba(251,191,36,0.15)', color: 'var(--amber)', borderColor: 'rgba(251,191,36,0.3)' }}>
-                      WAITING
+                    <span className="hero-badge" style={{ background: 'rgba(251,191,36,0.15)', color: 'var(--amber)', borderColor: 'rgba(251,191,36,0.3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <SpinnerIcon /> WAITING
                     </span>
                   ) : (
                     <span className="hero-badge">RESULT DECLARED</span>
@@ -247,7 +290,7 @@ export default function HomePage() {
                           <div className="num-box">
                             <span className="num-label">TODAY</span>
                             <span className={`num-badge ${todayCls}`} id={`num-${g.code}`}>
-                              {g.today_number}
+                              {isPending ? <SpinnerIcon /> : g.today_number}
                             </span>
                           </div>
                         </div>
@@ -291,10 +334,10 @@ export default function HomePage() {
                 return (
                   <tr key={r.day}>
                     <td className="day-col">{r.day}</td>
-                    <td className={`num-col ${cell(r.DS)}`}>{r.DS}</td>
-                    <td className={`num-col ${cell(r.FB)}`}>{r.FB}</td>
-                    <td className={`num-col ${cell(r.GB)}`}>{r.GB}</td>
-                    <td className={`num-col ${cell(r.GL)}`}>{r.GL}</td>
+                    <td className={`num-col ${cell(r.DS)}`}>{r.DS === 'XX' && isToday ? <SpinnerIcon /> : r.DS}</td>
+                    <td className={`num-col ${cell(r.FB)}`}>{r.FB === 'XX' && isToday ? <SpinnerIcon /> : r.FB}</td>
+                    <td className={`num-col ${cell(r.GB)}`}>{r.GB === 'XX' && isToday ? <SpinnerIcon /> : r.GB}</td>
+                    <td className={`num-col ${cell(r.GL)}`}>{r.GL === 'XX' && isToday ? <SpinnerIcon /> : r.GL}</td>
                   </tr>
                 );
               })}
@@ -323,7 +366,7 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* ── FOOTER ARCHIVE SELECTOR ── */}
+      {/* ── FOOTER ARCHIVE SELECTOR & WHATSAPP ── */}
       <footer id="footer">
         <div className="form-card">
           <h3>Browse Complete Monthly Archives</h3>
@@ -349,8 +392,20 @@ export default function HomePage() {
               ))}
             </select>
           </div>
+          <div style={{ marginTop: 20 }}>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-wa">
+              💬 24x7 WhatsApp सपोर्ट: {WHATSAPP_NUMBER}
+            </a>
+          </div>
         </div>
       </footer>
+
+      {/* FLOATING WHATSAPP BUTTON */}
+      <div className="floating-wa">
+        <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-floating-wa">
+          💬 WhatsApp
+        </a>
+      </div>
 
       {/* FLOATING REFRESH FAB */}
       <div className="floating-bar">
