@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { STATIC_GAMES, getMockGameAnnualChart, WHATSAPP_URL, WHATSAPP_NUMBER } from '../../../../lib/mockData';
+import { WHATSAPP_URL, WHATSAPP_NUMBER } from '../../../../lib/constants';
 
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -13,53 +13,42 @@ export default function GameChartPage() {
 
   const currentYear = new Date().getFullYear();
   const [year, setYear]           = useState(String(currentYear));
-  const [gameData, setGameData]   = useState(() => STATIC_GAMES.find(g => g.code === gameCode) || { name: gameCode, draw_time: '08:00 PM' });
-  const [monthlyData, setMonthly] = useState(() => getMockGameAnnualChart(gameCode, String(currentYear)).monthly_data);
-  const [todayResults, setToday]  = useState(STATIC_GAMES);
-  const [todayDate, setTDate]     = useState(() => new Date().toISOString().split('T')[0]);
-  const [yesterdayDate, setYDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  });
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
+  const [gameData, setGameData]   = useState(null);
+  const [monthlyData, setMonthly] = useState({});
+  const [todayResults, setToday]  = useState([]);
+  const [todayDate, setTDate]     = useState('');
+  const [yesterdayDate, setYDate] = useState('');
+  const [loading, setLoading]     = useState(true);
 
-  // Fetch chart data for this game + year with fallback
+  // Fetch chart data for this game + year from backend API
   const loadGameChart = useCallback(async (yr) => {
     try {
       setLoading(true);
       const res = await fetch(`/api/chart/game/${gameCode}?year=${yr}`);
-      if (!res.ok) throw new Error('Failed to fetch game chart');
       const json = await res.json();
       if (json.success && json.monthly_data) {
-        setGameData(json.game || STATIC_GAMES.find(g => g.code === gameCode) || { name: gameCode, draw_time: '08:00 PM' });
+        setGameData(json.game || { name: gameCode, code: gameCode });
         setMonthly(json.monthly_data);
-        return;
       }
     } catch (e) {
-      // Fallback
-      const mock = getMockGameAnnualChart(gameCode, yr);
-      setGameData(mock.game);
-      setMonthly(mock.monthly_data);
+      console.warn('[SK] Failed to fetch game chart:', e.message);
     } finally {
       setLoading(false);
     }
   }, [gameCode]);
 
-  // Fetch today's live results board with fallback
+  // Fetch today's live results board from backend API
   const loadToday = useCallback(async () => {
     try {
       const res = await fetch('/api/results/today');
-      if (!res.ok) throw new Error('API error');
       const json = await res.json();
-      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      if (json.success && Array.isArray(json.data)) {
         setToday(json.data);
         if (json.today_date) setTDate(json.today_date);
         if (json.yesterday_date) setYDate(json.yesterday_date);
       }
     } catch (e) {
-      // Keep static data
+      console.warn('[SK] Failed to fetch results:', e.message);
     }
   }, []);
 
@@ -78,10 +67,10 @@ export default function GameChartPage() {
     { key: 'REST', label: '✓ DONE', cls: 'cat-rest' },
   ];
 
-  const thisGame = todayResults.find(g => g.code === gameCode);
+  const thisGame = todayResults.find(g => g.code === gameCode) || gameData;
 
   const SpinnerIcon = () => (
-    <span className="wait-spinner" title="रिजल्ट का इंतज़ार">
+    <span className="wait-spinner" title="लाइव रिजल्ट का इंतज़ार">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
         <circle cx="12" cy="12" r="9.5" />
         <line className="clock-hand" x1="12" y1="12" x2="12" y2="6.5" />
@@ -142,7 +131,7 @@ export default function GameChartPage() {
               📊 {gameData?.name || gameCode} SATTA RECORD CHART {year}
             </span>
             <span className="section-meta" style={{ marginTop: 4 }}>
-              Draw Time: {gameData?.draw_time} &nbsp;|&nbsp; Annual Result Record &nbsp;|&nbsp; Code: {gameCode}
+              Draw Time: {gameData?.draw_time || '—'} &nbsp;|&nbsp; Annual Result Record &nbsp;|&nbsp; Code: {gameCode}
             </span>
           </div>
         </div>
@@ -158,16 +147,16 @@ export default function GameChartPage() {
               <div className="num-box">
                 <span className="num-label">YEST ({fmt(yesterdayDate)})</span>
                 <span className="num-badge yesterday" style={{ width: 56, height: 50, fontSize: 26 }}>
-                  {thisGame.yesterday_number}
+                  {thisGame.yesterday_number || '—'}
                 </span>
               </div>
               <div className="num-box">
                 <span className="num-label">TODAY ({fmt(todayDate)})</span>
                 <span
-                  className={`num-badge ${thisGame.today_number === 'XX' || thisGame.today_number === '--' ? 'pending' : 'today is-highlight-num'}`}
+                  className={`num-badge ${!thisGame.today_number || thisGame.today_number === 'XX' || thisGame.today_number === '--' ? 'pending' : 'today is-highlight-num'}`}
                   style={{ width: 56, height: 50, fontSize: 26 }}
                 >
-                  {thisGame.today_number === 'XX' || thisGame.today_number === '--' ? <SpinnerIcon /> : thisGame.today_number}
+                  {!thisGame.today_number || thisGame.today_number === 'XX' || thisGame.today_number === '--' ? <SpinnerIcon /> : thisGame.today_number}
                 </span>
               </div>
             </div>
@@ -210,15 +199,11 @@ export default function GameChartPage() {
                       <td className="day-col">{dPad}</td>
                       {Array.from({ length: 12 }, (_, m) => {
                         const mPad = String(m + 1).padStart(2, '0');
-                        const num = monthlyData?.[mPad]?.[dPad] || 'XX';
+                        const num = monthlyData?.[mPad]?.[dPad];
                         const hasNum = num && num !== 'XX' && num !== '--';
                         return (
                           <td key={mPad} className={`num-cell ${hasNum ? 'has-num' : ''}`}>
-                            {num === 'XX' && year === String(currentYear) && m === new Date().getMonth() + 1 && i + 1 === new Date().getDate() ? (
-                              <SpinnerIcon />
-                            ) : (
-                              num
-                            )}
+                            {num === 'XX' ? <SpinnerIcon /> : (num || '—')}
                           </td>
                         );
                       })}
@@ -250,7 +235,7 @@ export default function GameChartPage() {
                 </div>
                 <div className="results-grid">
                   {catGames.map((g) => {
-                    const isPending = g.today_number === 'XX' || g.today_number === '--';
+                    const isPending = !g.today_number || g.today_number === 'XX' || g.today_number === '--';
                     const todayCls = isPending ? 'pending' : `today${g.is_highlight ? ' is-highlight-num' : ''}`;
                     const isHighlight = g.is_highlight ? 'highlight' : '';
                     const chartHref = `/${g.slug || g.code.toLowerCase()}/satta-result-chart/${g.code.toLowerCase()}/`;
@@ -267,7 +252,7 @@ export default function GameChartPage() {
                         <div className="numbers-wrapper">
                           <div className="num-box">
                             <span className="num-label">YEST</span>
-                            <span className="num-badge yesterday">{g.yesterday_number}</span>
+                            <span className="num-badge yesterday">{g.yesterday_number || '—'}</span>
                           </div>
                           <div className="num-box">
                             <span className="num-label">TODAY</span>
