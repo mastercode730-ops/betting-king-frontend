@@ -21,6 +21,7 @@ export default function HomePage() {
   const [chartYear, setChartYear]   = useState(() => String(new Date().getFullYear()));
   const [chartData, setChartData]   = useState(null);
   const [loadingResults, setLoadingResults] = useState(true);
+  const [announcement, setAnnouncement] = useState(null);
 
   // Live Clock
   useEffect(() => {
@@ -34,6 +35,14 @@ export default function HomePage() {
   }, []);
 
   // Fetch today results from backend API
+  const loadAnnouncement = useCallback(async () => {
+    try {
+      const res = await fetch('/api/announcement');
+      const json = await res.json();
+      if (json && json.success) setAnnouncement(json);
+    } catch (e) {}
+  }, []);
+
   const loadResults = useCallback(async () => {
     try {
       setSyncing(true);
@@ -54,7 +63,8 @@ export default function HomePage() {
 
   useEffect(() => {
     loadResults();
-    const id = setInterval(loadResults, REFRESH_MS);
+    loadAnnouncement();
+    const id = setInterval(() => { loadResults(); loadAnnouncement(); }, REFRESH_MS);
     return () => clearInterval(id);
   }, [loadResults]);
 
@@ -179,6 +189,21 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* ── LIVE ANNOUNCEMENT / ADVERTISEMENT BANNER ── */}
+      {announcement && announcement.active && announcement.text && (
+        <div className="adv-banner" role="alert">
+          <div className="adv-banner-inner">
+            <span className="adv-badge">📢 SPECIAL NOTICE</span>
+            <span className="adv-text" dangerouslySetInnerHTML={{
+              __html: announcement.text.replace(
+                /(https?:\/\/[^\s]+)/g,
+                '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+              )
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* ── LIVE TICKER MARQUEE ── */}
       <div className="ticker" aria-label="Live draws ticker">
