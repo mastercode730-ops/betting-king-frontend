@@ -64,9 +64,12 @@ export default function HomePage() {
   useEffect(() => {
     loadResults();
     loadAnnouncement();
-    const id = setInterval(() => { loadResults(); loadAnnouncement(); }, REFRESH_MS);
+    const id = setInterval(() => {
+      loadResults();
+      loadAnnouncement();
+    }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [loadResults]);
+  }, [loadResults, loadAnnouncement]);
 
   // Load monthly chart from backend API
   const loadChart = useCallback(async (month, year) => {
