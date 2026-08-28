@@ -15,6 +15,9 @@ export const metadata = {
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
   },
+  verification: {
+    google: 'h7DLR-IdzczbPHAB1C7vZ0YYQBJJ-xuW6UwKw7WEfwM',
+  },
 };
 
 export default function RootLayout({ children }) {
